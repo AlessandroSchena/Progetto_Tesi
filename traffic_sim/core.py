@@ -4,6 +4,8 @@ import networkx as nx
 import pygame
 from utilities.Debug import debug
 from utilities.ColorPicker import color_pick
+from utilities.euclidean_distance import distanza_euclidea
+
 
 
 MIN_SCALE = 0.1
@@ -521,6 +523,66 @@ def gen_graph(num_nodes:int, mode, traffic_lights):
                 if DEBUG:
                     debug("nodo incrocio:", n)
         return G
+    elif mode == 'ring_road': # ring_road
+        seed = random.randint(0, 1000)
+        G1 = nx.connected_watts_strogatz_graph(num_nodes, 3, 0.5, seed)
+        nx.set_node_attributes(G1, "", "tipo")
+        debug("G1 nodes:", G1.nodes())
+        for n in G1.nodes():
+            if G1.degree[n] > 2:
+                G1.nodes[n]["tipo"] = "incrocio"
+                incoming_edges = [(u, n) for u in G1.neighbors(n)]
+                traffic_lights[n] = TrafficLightController(n, incoming_edges, green_time=2, red_time=2)
+                debug("nodo incrocio:", n)
+
+        scale_pos = 950
+
+        # add_POI_to_graph(G1, ["Museo", "Parco", "Teatro", "Biblioteca"])
+        pos1 = nx.spring_layout(G1, scale=(scale_pos)/2, center=((scale_pos-20)/2, (scale_pos-60)/2))
+        debug("nodi grado 1: ", [(node) for node, num_edge in G1.degree() if num_edge == 1])
+
+        G2 = nx.cycle_graph(int(num_nodes/2))
+        G2 = nx.relabel_nodes(G2, lambda x: x + len(G1.nodes))
+        nx.set_node_attributes(G2, "", "tipo")
+        pos2 = nx.circular_layout(G2, scale=(2*scale_pos/3), center=((scale_pos-20)/2, (scale_pos-60)/2))
+        # pos2 = {n + len(G1.nodes): p for n, p in pos2.items()}
+        pos = {**pos1, **pos2}
+        debug("pos: ", pos.keys())
+        G = nx.Graph()
+        G.add_nodes_from(G2.nodes(data=True))
+        G.add_edges_from(G2.edges(data=True))
+        G.add_nodes_from(G1.nodes(data=True))
+        G.add_edges_from(G1.edges(data=True))
+
+        n_collegamenti = 3
+
+        min_dist = float('inf')
+        best_pair_list = []
+        for int_node, int_pos in pos1.items():
+            for est_node, est_pos in pos2.items():
+                dist = distanza_euclidea(int_pos, est_pos)
+                if dist < min_dist:
+                    min_dist = dist
+                    best_pair_list.append((dist, int_node, est_node))
+            min_dist = float('inf')
+        best_pair_list.sort(key=lambda x: x[0])
+
+        selected_inner = set()
+        selected_outer = set()
+        edges_to_add = []
+
+        for dist, nodo_interno, nodo_esterno in best_pair_list:
+            if len(edges_to_add) >= n_collegamenti:
+                break
+            if nodo_interno not in selected_inner and nodo_esterno not in selected_outer:
+                edges_to_add.append((nodo_esterno, nodo_interno))
+                selected_inner.add(nodo_interno)
+                selected_outer.add(nodo_esterno)
+
+        G.add_edges_from(edges_to_add)
+
+        debug("grafo nodi: ", G.nodes)
+        return G, pos
 
 
 # aggiungi punti di interesse(POI) al grafo

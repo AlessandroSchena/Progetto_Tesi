@@ -163,7 +163,7 @@ def pygame_thread_main(shared_data, lock):
     )
     Y_PANEL = Y_PANEL + 23
     dd1 = pygame_gui.elements.UIDropDownMenu(
-        options_list=['grid', 'random', 'pre_defined'],
+        options_list=['grid', 'random', 'pre_defined', 'ring_road'],
         starting_option='random',
         relative_rect=pygame.Rect((10, Y_PANEL), (BTN_WIDTH, 32)),
         manager=manager,
@@ -327,12 +327,13 @@ def pygame_thread_main(shared_data, lock):
                                 shared_data['pos'] = pos_norm
 
                         else:
-                            G = gen_graph(int(sld1.get_current_value()), graph_gen_mode, traffic_lights)
 
                             if graph_gen_mode == 'random':
+                                G = gen_graph(int(sld1.get_current_value()), graph_gen_mode, traffic_lights)
                                 pos = nx.spring_layout(G, scale=(SIM_WIDTH)/2, center=((SIM_WIDTH-20)/2, (SIM_HEIGHT-60)/2))
                                 pos = {n: (x*2, y*2) for n, (x, y) in pos.items()}  # scala le posizioni per una migliore visibilità
                             elif graph_gen_mode == 'pre_defined':
+                                G = gen_graph(int(sld1.get_current_value()), graph_gen_mode, traffic_lights)
                                 pos = {0: (np.float64(1184.4347090770966), np.float64(682.5497704741763)), 
                                        1: (np.float64(1383.8081567653837), np.float64(695.3533051162649)), 
                                        2: (np.float64(499.2379835080458), np.float64(1550.0471161298778)), 
@@ -363,11 +364,10 @@ def pygame_thread_main(shared_data, lock):
                                        28: (np.float64(1774.1919290025623), np.float64(656.1078017573541)), 
                                        29: (np.float64(1396.985013309661), np.float64(1465.6638216882443))
                                 }
-
-                            
-
-                            if graph_gen_mode == 'pre_defined':
                                 debug("Pre_defined pos: ", pos)
+                            elif graph_gen_mode == 'ring_road':
+                                G, pos = gen_graph(int(sld1.get_current_value()), graph_gen_mode, traffic_lights)
+                            
 
                             xs = np.array([v[0] for v in pos.values()])
                             ys = np.array([v[1] for v in pos.values()])
