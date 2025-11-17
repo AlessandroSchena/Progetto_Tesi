@@ -20,7 +20,14 @@ class Camera:
         # cioè: screen_pos = (world_pos - offset) * scale
         self.offset = pygame.Vector2(offset)
         self.scale = scale
+        self.font_cache = {}
 
+    def get_font(self, scale):
+        size = int(16 * scale)
+        if size not in self.font_cache:
+            self.font_cache[size] = pygame.font.Font(None, size)
+        return self.font_cache[size]
+    
     def world_to_screen(self, world_pos):
         return (pygame.Vector2(world_pos) - self.offset) * self.scale
 
@@ -70,6 +77,7 @@ class Agent:
         self.side = "right" # lato su cui percorrere l'arco
         self.current_target = None # target corrente
         self.current_edge_nodes = None # arco e corsia attuali
+        self.prev_edge_nodes = None # arco e corsia precedenti
 
         self.lock = lock
         self.shared_data = shared_data
@@ -86,7 +94,8 @@ class Agent:
         if self.edge_closed:
             for edge in self.edge_closed:
                 u, v = edge
-                debug("graph edge is_open attribute", graph[u][v]['is_open'])
+                if DEBUG:
+                    debug("graph edge is_open attribute", graph[u][v]['is_open'])
                 if temp_graph.has_edge(u, v) and graph[u][v].get("is_open", True) == False:
                     temp_graph.remove_edge(u, v)
         while True:
@@ -111,6 +120,11 @@ class Agent:
             self.x, self.y = p1_off
             self.current_target = p2_off
             self.current_edge_nodes = (u, v, self.side)
+            if graph.has_edge(u, v):
+                graph[u][v]['agents_on_edge'].add(self.id)
+                debug("agents_on_edge attribute:", graph[u][v]['agents_on_edge'], "for edge", u, "→", v)
+            elif graph.has_edge(v, u):
+                graph[v][u]['agents_on_edge'].add(self.id)
 
     # Muove l'agente verso il target, evitando collisioni con altri agenti
     def move_towards(self, target, others, traffic_lights, dt=1.0):
@@ -215,7 +229,8 @@ class Agent:
 
         try:
             new_path = nx.shortest_path(temp_graph, u, target)
-            debug("New path: ", new_path)
+            if DEBUG:
+                debug("New path: ", new_path)
             self.path = new_path
             self.path_index = 0
 
@@ -254,11 +269,34 @@ class Agent:
                 self.x, self.y = p1_off
                 self.current_target = p2_off
                 self.current_edge_nodes = (u, v, self.side)
+                u1, v1, d = self.prev_edge_nodes
+                # debug("agents_on_edge attribute:", graph[u1][v1]['agents_on_edge'], "for edge", u1, "→", v1)
+                if graph.has_edge(u1, v1):
+                    debug("Removing agent", self.id, "from edge", u1, "→", v1)
+                    graph[u1][v1]['agents_on_edge'].remove(self.id)
+                    debug("agents_on_edge attribute:", graph[u1][v1]['agents_on_edge'], "for edge", u1, "→", v1)
+                elif graph.has_edge(v1, u1):
+                    debug("Removing agent", self.id, "from edge", v1, "→", u1)
+                    graph[v1][u1]['agents_on_edge'].remove(self.id)
+                    debug("agents_on_edge attribute:", graph[v1][u1]['agents_on_edge'], "for edge", v1, "→", u1)
+                if graph.has_edge(u, v):
+                    debug("Adding agent", self.id, "to edge", u, "→", v)
+                    graph[u][v]['agents_on_edge'].add(self.id)
+                    debug("agents_on_edge attribute:", graph[u][v]['agents_on_edge'], "for edge", u, "→", v)
+                elif graph.has_edge(v, u):
+                    debug("Adding agent", self.id, "to edge", v, "→", u)
+                    graph[v][u]['agents_on_edge'].add(self.id)
+                    debug("agents_on_edge attribute:", graph[v][u]['agents_on_edge'], "for edge", v, "→", u)
+                # debug("Agent", self.id, "moving from node", u, "to node", v, "current edge:", self.current_edge_nodes)
 
             arrived = self.move_towards(self.current_target, agents, traffic_lights, dt)
 
             if arrived:
+                #debug("Agent", self.id, "arrived at node", v, "current edge:", self.current_edge_nodes)
+                # graph[u][v]['agents_on_edge'].remove(self.id)
+                self.prev_edge_nodes = self.current_edge_nodes
                 self.path_index += 1
+                #debug(f"Agent {self.id} arrived at node {v} and is moving to next node {self.path[self.path_index+1] if self.path_index < len(self.path) - 1 else 'end of path'}")
                 self.current_target = None  # forza ricalcolo prossimo arco
         else:
             self.new_path(graph, pos)
@@ -290,10 +328,12 @@ class Agent:
 
         # Disegna la label con l'ID
         if show_labels:
-            font = pygame.font.Font(None, int(16 * camera.scale))  # dimensione proporzionale allo zoom
+            font = camera.get_font(camera.scale)
             text_surface = font.render(str(self.id), True, (255, 255, 255))  # colore bianco
             text_rect = text_surface.get_rect(center=(screen_pos[0], screen_pos[1] - radius_scaled*2))
             screen.blit(text_surface, text_rect)
+
+
 
     def current_edge(self):
         return self.current_edge_nodes
@@ -458,6 +498,9 @@ def gen_graph(num_nodes:int, mode, traffic_lights):
                 traffic_lights[n] = TrafficLightController(n, incoming_edges, green_time=2, red_time=2, detection_radius=80, type="sensor_based")
             else:
                 G.nodes[n]["tipo"] = ""
+        nx.set_node_attributes(G, True, "is_reachable")
+        nx.set_edge_attributes(G, True, "is_open")
+        nx.set_edge_attributes(G, {edge: set() for edge in G.edges()}, "agents_on_edge")
         return G, pos
     elif mode == 'random': # random
         seed = random.randint(0, 1000)
@@ -476,6 +519,7 @@ def gen_graph(num_nodes:int, mode, traffic_lights):
 
         nx.set_node_attributes(G, True, "is_reachable")
         nx.set_edge_attributes(G, True, "is_open")
+        nx.set_edge_attributes(G, {edge: set() for edge in G.edges()}, "agents_on_edge")
         return G
     elif mode == 'pre_defined': # pre_defined
         G = nx.Graph()
@@ -522,6 +566,7 @@ def gen_graph(num_nodes:int, mode, traffic_lights):
                 traffic_lights[n] = TrafficLightController(n, incoming_edges, green_time=2, red_time=2)
                 if DEBUG:
                     debug("nodo incrocio:", n)
+        nx.set_edge_attributes(G, {edge: set() for edge in G.edges()}, "agents_on_edge")
         return G
     elif mode == 'ring_road': # ring_road
         seed = random.randint(0, 1000)
@@ -543,7 +588,6 @@ def gen_graph(num_nodes:int, mode, traffic_lights):
 
         G2 = nx.cycle_graph(int(num_nodes/2))
         G2 = nx.relabel_nodes(G2, lambda x: x + len(G1.nodes))
-        nx.set_node_attributes(G2, "", "tipo")
         pos2 = nx.circular_layout(G2, scale=(2*scale_pos/3), center=((scale_pos-20)/2, (scale_pos-60)/2))
         # pos2 = {n + len(G1.nodes): p for n, p in pos2.items()}
         pos = {**pos1, **pos2}
@@ -580,6 +624,9 @@ def gen_graph(num_nodes:int, mode, traffic_lights):
                 selected_outer.add(nodo_esterno)
 
         G.add_edges_from(edges_to_add)
+        nx.set_node_attributes(G, True, "is_reachable")
+        nx.set_edge_attributes(G, True, "is_open")
+        nx.set_edge_attributes(G, {edge: set() for edge in G.edges()}, "agents_on_edge")
 
         debug("grafo nodi: ", G.nodes)
         return G, pos

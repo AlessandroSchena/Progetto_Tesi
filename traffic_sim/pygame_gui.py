@@ -5,6 +5,7 @@ import math
 import random
 import networkx as nx
 import numpy as np
+import os
 from screeninfo import get_monitors
 
 from traffic_sim.core import *
@@ -68,7 +69,7 @@ def pygame_thread_main(shared_data, lock):
         }
     }
 
-    myfont = pygame.font.SysFont('Arial', 14)
+    myfont = pygame.font.SysFont('Arial', 16)
     label_font = pygame.font.SysFont(None, 20)
 
     manager = pygame_gui.UIManager((WIDTH, HEIGHT), theme)
@@ -388,6 +389,8 @@ def pygame_thread_main(shared_data, lock):
 
                         with lock:
                             shared_data['graph'] = G
+                        
+                        debug("Generated graph: ", G.edges(data=True))
 
                         btn2.enable()
                         sld2.enable()
@@ -603,6 +606,7 @@ def pygame_thread_main(shared_data, lock):
 
         if not spawned and graph_generated:
             draw_graph(G, pos, show_labels, camera=camera, sim_surface=sim_surface, traffic_lights=traffic_lights, myfont=myfont)
+        
         
 
         screen.blit(sim_surface, (10, 10))
