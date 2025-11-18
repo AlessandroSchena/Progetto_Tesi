@@ -2,6 +2,7 @@ import random
 import math
 import networkx as nx
 import pygame
+import numpy as np
 from utilities.Debug import debug
 from utilities.ColorPicker import color_pick
 from utilities.euclidean_distance import distanza_euclidea
@@ -487,6 +488,8 @@ def build_grid_graph(rows, cols, area_rect, padding=60):
 
 # Funzione per generare un grafo connesso
 def gen_graph(num_nodes:int, mode, traffic_lights):
+    scale_pos = 950
+    pos = None
     if mode == 'grid': # grid
         rows = int(num_nodes)
         cols = int(num_nodes)
@@ -498,10 +501,6 @@ def gen_graph(num_nodes:int, mode, traffic_lights):
                 traffic_lights[n] = TrafficLightController(n, incoming_edges, green_time=2, red_time=2, detection_radius=80, type="sensor_based")
             else:
                 G.nodes[n]["tipo"] = ""
-        nx.set_node_attributes(G, True, "is_reachable")
-        nx.set_edge_attributes(G, True, "is_open")
-        nx.set_edge_attributes(G, {edge: set() for edge in G.edges()}, "agents_on_edge")
-        return G, pos
     elif mode == 'random': # random
         seed = random.randint(0, 1000)
         G = nx.connected_watts_strogatz_graph(num_nodes, 3, 0.5, seed)
@@ -514,13 +513,12 @@ def gen_graph(num_nodes:int, mode, traffic_lights):
                 traffic_lights[n] = TrafficLightController(n, incoming_edges, green_time=2, red_time=2, detection_radius=80, type="sensor_based")
                 if DEBUG:
                     debug("nodo incrocio:", n)
-        
+            else:
+                G.nodes[n]["tipo"] = ""
         add_POI_to_graph(G, ["Museo", "Parco", "Teatro", "Biblioteca"])
 
-        nx.set_node_attributes(G, True, "is_reachable")
-        nx.set_edge_attributes(G, True, "is_open")
-        nx.set_edge_attributes(G, {edge: set() for edge in G.edges()}, "agents_on_edge")
-        return G
+        pos = nx.spring_layout(G, scale=(scale_pos)/2, center=((scale_pos-20)/2, (scale_pos-60)/2))
+
     elif mode == 'pre_defined': # pre_defined
         G = nx.Graph()
                             
@@ -560,14 +558,43 @@ def gen_graph(num_nodes:int, mode, traffic_lights):
         G.add_nodes_from(nodes)
         G.add_edges_from(edges)
 
+        pos = {0: (np.float64(1184.4347090770966), np.float64(682.5497704741763)), 
+            1: (np.float64(1383.8081567653837), np.float64(695.3533051162649)), 
+            2: (np.float64(499.2379835080458), np.float64(1550.0471161298778)), 
+            3: (np.float64(807.9030878074891), np.float64(1326.0124879230507)), 
+            4: (np.float64(1064.323268027042), np.float64(155.70571582739183)), 
+            5: (np.float64(-20.0), np.float64(79.56581681082923)), 
+            6: (np.float64(1578.18644407733), np.float64(1513.5625463639808)), 
+            7: (np.float64(1695.7584186815654), np.float64(947.1213535394141)), 
+            8: (np.float64(580.6140292563205), np.float64(1374.4170723296706)), 
+            9: (np.float64(458.6523590999161), np.float64(1175.0978557006601)), 
+            10: (np.float64(1672.1841020147288), np.float64(1154.3810944689299)), 
+            11: (np.float64(1534.3355120394015), np.float64(1321.632527188649)), 
+            12: (np.float64(1290.8698989477768), np.float64(1265.383845487956)), 
+            13: (np.float64(293.5202367859606), np.float64(1266.3206514666817)), 
+            14: (np.float64(124.45900877598001), np.float64(178.69447597485237)), 
+            15: (np.float64(118.35437205288531), np.float64(5.1750290217470365)), 
+            16: (np.float64(1216.852204811691), np.float64(1369.0181422248809)), 
+            17: (np.float64(1024.9282202317208), np.float64(1198.507180873981)), 
+            18: (np.float64(221.40559748369571), np.float64(408.93150952583744)), 
+            19: (np.float64(1611.7185127954453), np.float64(749.9353795888587)), 
+            20: (np.float64(1003.4571510939005), np.float64(340.50322249117767)), 
+            21: (np.float64(349.3038636987003), np.float64(651.8968011732497)), 
+            22: (np.float64(516.7983886635782), np.float64(903.763595563013)), 
+            23: (np.float64(832.5774532999345), np.float64(907.4609160983032)), 
+            24: (np.float64(928.9015507871163), np.float64(599.0858066006342)), 
+            26: (np.float64(348.14267896880915), np.float64(906.4062348971107)), 
+            27: (np.float64(1014.0958489362621), np.float64(468.69892369322)), 
+            28: (np.float64(1774.1919290025623), np.float64(656.1078017573541)), 
+            29: (np.float64(1396.985013309661), np.float64(1465.6638216882443))
+    }
+
         for n in G.nodes():
             if G.nodes[n]["tipo"] == "incrocio":
                 incoming_edges = [(u, n) for u in G.neighbors(n)]
                 traffic_lights[n] = TrafficLightController(n, incoming_edges, green_time=2, red_time=2)
                 if DEBUG:
                     debug("nodo incrocio:", n)
-        nx.set_edge_attributes(G, {edge: set() for edge in G.edges()}, "agents_on_edge")
-        return G
     elif mode == 'ring_road': # ring_road
         seed = random.randint(0, 1000)
         G1 = nx.connected_watts_strogatz_graph(num_nodes, 3, 0.5, seed)
@@ -579,8 +606,8 @@ def gen_graph(num_nodes:int, mode, traffic_lights):
                 incoming_edges = [(u, n) for u in G1.neighbors(n)]
                 traffic_lights[n] = TrafficLightController(n, incoming_edges, green_time=2, red_time=2)
                 debug("nodo incrocio:", n)
-
-        scale_pos = 950
+            else:
+                G1.nodes[n]["tipo"] = ""
 
         # add_POI_to_graph(G1, ["Museo", "Parco", "Teatro", "Biblioteca"])
         pos1 = nx.spring_layout(G1, scale=(scale_pos)/2, center=((scale_pos-20)/2, (scale_pos-60)/2))
@@ -592,6 +619,8 @@ def gen_graph(num_nodes:int, mode, traffic_lights):
         # pos2 = {n + len(G1.nodes): p for n, p in pos2.items()}
         pos = {**pos1, **pos2}
         debug("pos: ", pos.keys())
+        for n in G2.nodes():
+            G2.nodes[n]["tipo"] = ""
         G = nx.Graph()
         G.add_nodes_from(G2.nodes(data=True))
         G.add_edges_from(G2.edges(data=True))
@@ -624,13 +653,20 @@ def gen_graph(num_nodes:int, mode, traffic_lights):
                 selected_outer.add(nodo_esterno)
 
         G.add_edges_from(edges_to_add)
+
+        debug("grafo nodi: ", G.nodes)
+    
+    if mode != "pre_defined":
         nx.set_node_attributes(G, True, "is_reachable")
         nx.set_edge_attributes(G, True, "is_open")
         nx.set_edge_attributes(G, {edge: set() for edge in G.edges()}, "agents_on_edge")
-
-        debug("grafo nodi: ", G.nodes)
+        pos = {n: (x*2, y*2) for n, (x, y) in pos.items()}
+        debug("pos: ", pos)
         return G, pos
-
+    else:
+        nx.set_edge_attributes(G, {edge: set() for edge in G.edges()}, "agents_on_edge")
+        debug("pos: ", pos)
+        return G, pos
 
 # aggiungi punti di interesse(POI) al grafo
 def add_POI_to_graph(G, POI_list):

@@ -308,7 +308,7 @@ def pygame_thread_main(shared_data, lock):
                             with lock:
                                 shared_data['graph'] = G
                                 shared_data['graph_generated'] = True
-                            draw_graph(G, pos, graph_gen_mode, show_labels, traffic_lights, sim_surface, graph_box, screen, myfont, camera)
+                            draw_graph(G, pos, show_labels, camera=camera, sim_surface=sim_surface, traffic_lights=traffic_lights, myfont=myfont)
                             scaled_pos = pos
 
                             debug("POS:", pos)
@@ -330,41 +330,12 @@ def pygame_thread_main(shared_data, lock):
                         else:
 
                             if graph_gen_mode == 'random':
-                                G = gen_graph(int(sld1.get_current_value()), graph_gen_mode, traffic_lights)
-                                pos = nx.spring_layout(G, scale=(SIM_WIDTH)/2, center=((SIM_WIDTH-20)/2, (SIM_HEIGHT-60)/2))
-                                pos = {n: (x*2, y*2) for n, (x, y) in pos.items()}  # scala le posizioni per una migliore visibilità
+                                G, pos = gen_graph(int(sld1.get_current_value()), graph_gen_mode, traffic_lights)
+                                # pos = nx.spring_layout(G, scale=(SIM_WIDTH)/2, center=((SIM_WIDTH-20)/2, (SIM_HEIGHT-60)/2))
+                                # pos = {n: (x*2, y*2) for n, (x, y) in pos.items()}  # scala le posizioni per una migliore visibilità
                             elif graph_gen_mode == 'pre_defined':
-                                G = gen_graph(int(sld1.get_current_value()), graph_gen_mode, traffic_lights)
-                                pos = {0: (np.float64(1184.4347090770966), np.float64(682.5497704741763)), 
-                                       1: (np.float64(1383.8081567653837), np.float64(695.3533051162649)), 
-                                       2: (np.float64(499.2379835080458), np.float64(1550.0471161298778)), 
-                                       3: (np.float64(807.9030878074891), np.float64(1326.0124879230507)), 
-                                       4: (np.float64(1064.323268027042), np.float64(155.70571582739183)), 
-                                       5: (np.float64(-20.0), np.float64(79.56581681082923)), 
-                                       6: (np.float64(1578.18644407733), np.float64(1513.5625463639808)), 
-                                       7: (np.float64(1695.7584186815654), np.float64(947.1213535394141)), 
-                                       8: (np.float64(580.6140292563205), np.float64(1374.4170723296706)), 
-                                       9: (np.float64(458.6523590999161), np.float64(1175.0978557006601)), 
-                                       10: (np.float64(1672.1841020147288), np.float64(1154.3810944689299)), 
-                                       11: (np.float64(1534.3355120394015), np.float64(1321.632527188649)), 
-                                       12: (np.float64(1290.8698989477768), np.float64(1265.383845487956)), 
-                                       13: (np.float64(293.5202367859606), np.float64(1266.3206514666817)), 
-                                       14: (np.float64(124.45900877598001), np.float64(178.69447597485237)), 
-                                       15: (np.float64(118.35437205288531), np.float64(5.1750290217470365)), 
-                                       16: (np.float64(1216.852204811691), np.float64(1369.0181422248809)), 
-                                       17: (np.float64(1024.9282202317208), np.float64(1198.507180873981)), 
-                                       18: (np.float64(221.40559748369571), np.float64(408.93150952583744)), 
-                                       19: (np.float64(1611.7185127954453), np.float64(749.9353795888587)), 
-                                       20: (np.float64(1003.4571510939005), np.float64(340.50322249117767)), 
-                                       21: (np.float64(349.3038636987003), np.float64(651.8968011732497)), 
-                                       22: (np.float64(516.7983886635782), np.float64(903.763595563013)), 
-                                       23: (np.float64(832.5774532999345), np.float64(907.4609160983032)), 
-                                       24: (np.float64(928.9015507871163), np.float64(599.0858066006342)), 
-                                       26: (np.float64(348.14267896880915), np.float64(906.4062348971107)), 
-                                       27: (np.float64(1014.0958489362621), np.float64(468.69892369322)), 
-                                       28: (np.float64(1774.1919290025623), np.float64(656.1078017573541)), 
-                                       29: (np.float64(1396.985013309661), np.float64(1465.6638216882443))
-                                }
+                                G, pos = gen_graph(int(sld1.get_current_value()), graph_gen_mode, traffic_lights)
+                                
                                 debug("Pre_defined pos: ", pos)
                             elif graph_gen_mode == 'ring_road':
                                 G, pos = gen_graph(int(sld1.get_current_value()), graph_gen_mode, traffic_lights)
@@ -389,8 +360,6 @@ def pygame_thread_main(shared_data, lock):
 
                         with lock:
                             shared_data['graph'] = G
-                        
-                        debug("Generated graph: ", G.edges(data=True))
 
                         btn2.enable()
                         sld2.enable()
