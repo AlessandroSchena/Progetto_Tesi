@@ -10,6 +10,7 @@ from screeninfo import get_monitors
 
 from traffic_sim.core import *
 from traffic_sim.draw import *
+from traffic_sim.traffic_controller import *
 
 from traffic_sim_tkinter.tkinter_data_vis import tk_info_node_window
 from traffic_sim_tkinter.tkinter_graph_state import tk_edge_state_window
@@ -212,6 +213,13 @@ def pygame_thread_main(shared_data, lock):
         manager=manager,
         container=panel
     )
+    Y_PANEL = Y_PANEL + BTN_HEIGHT + 10
+    btn8 = pygame_gui.elements.UIButton(
+        relative_rect=pygame.Rect((10, Y_PANEL), (BTN_WIDTH, BTN_HEIGHT)), # y=515
+        text="print grafo",
+        manager=manager,
+        container=panel
+    )
 
     sim_surface = pygame.Surface((SIM_WIDTH - 20, SIM_HEIGHT - 20))
     sim_surface.fill((30, 33, 39))  # colore di sfondo iniziale
@@ -370,6 +378,7 @@ def pygame_thread_main(shared_data, lock):
                             for agent in agents:
                                 agent.new_path(G, scaled_pos)
                                 agent.draw(sim_surface, camera=camera, show_labels=show_labels)
+                        init_traffic_dir(G)
                     if event.ui_element == btn2: # spawn agents
                         if G.number_of_nodes() != 0 and not spawned:
                             num_agents = int(sld2.get_current_value()) - 4
@@ -389,7 +398,7 @@ def pygame_thread_main(shared_data, lock):
                                 with lock:
                                     for agent in agents:
                                         shared_data["agents"][agent] = {
-                                            'direction': round(math.degrees(agent.angle), 2),
+                                            'direction': (round(agent.dir_x, 2), round(agent.dir_y, 2)), #round(math.degrees(agent.angle), 2),
                                             'speed': round(agent.actual_speed, 2),
                                             'current_edge': agent.current_edge(),
                                             'path': agent.path,
@@ -449,7 +458,11 @@ def pygame_thread_main(shared_data, lock):
                                 tk_graph_state_threading = threading.Thread(target=tk_edge_state_window, args=(shared_data, lock), daemon=True)
                                 tk_graph_state_threading.start()
                                 shared_data['edge_state_win_is_open'] = True
-
+                    if event.ui_element == btn8:
+                        print("-------------------------------------------------------------")
+                        for u, v in G.edges:
+                            debug(f"traffic on edge ({u}, {v}): {traffic_on_graph[(u, v)]}")
+                            debug(f"traffic on edge ({v}, {u}): {traffic_on_graph[(v, u)]}")
                 if event.user_type == pygame_gui.UI_DROP_DOWN_MENU_CHANGED:
                     if event.ui_element == dd1: # cambia forma agente
                         graph_gen_mode = event.text
@@ -526,7 +539,7 @@ def pygame_thread_main(shared_data, lock):
                 for agent in agents:
                     with lock:
                         shared_data["agents"][agent] = {
-                            'direction': round(math.degrees(agent.angle), 2),
+                            'direction': (round(agent.dir_x, 2), round(agent.dir_y, 2)), #round(math.degrees(agent.angle), 2),
                             'speed': round(agent.actual_speed, 2),
                             'current_edge': agent.current_edge(),
                             'path': agent.path,
@@ -535,6 +548,9 @@ def pygame_thread_main(shared_data, lock):
                         }
                     agent.update(G, scaled_pos, agents, dt * simulation_speed, traffic_lights)
                     agent.draw(sim_surface, camera=camera, show_labels=show_labels)
+
+                    # list_of_agents = traffic_on_edges(G, agent.path)
+                    #debug("Traffic on edges for agent", agent.id, ":", list_of_agents)
             
         if spawned and paused:
             '''possiblità di cambiare tipo di disegno del grafo'''
@@ -547,31 +563,6 @@ def pygame_thread_main(shared_data, lock):
             
             for agent in agents:
                 agent.draw(sim_surface, camera=camera, show_labels=show_labels)
-
-                '''
-                # aggiorna le label
-                if agent in lbls_dir:
-                    lbls_dir[agent].set_text(color_pick(agent.color) + " agent direction: " + str(round(math.degrees(agent.angle), 2)) + "°")
-                else:
-                    debug(f"Agent {color_pick(agent.color)} not found in labels dictionary!")
-                if update_speed_label_timer >= 500: # aggiorna ogni 500 ms
-                    if agent in lbls_spd:
-                        lbls_spd[agent].set_text(color_pick(agent.color) + " agent speed: " + str(round(agent.actual_speed, 2)) + " px/s")
-                        update_speed_label_timer = 0
-                    else:
-                        debug(f"Agent {color_pick(agent.color)} not found in speed labels dictionary or speed is equal to zero")
-                        update_speed_label_timer = 0
-                
-                if agent in lbls_current_edge:
-                    lbls_current_edge[agent].set_text(color_pick(agent.color) + " agent current edge: " + str(agent.current_edge()))
-                else:
-                    debug(f"Agent {color_pick(agent.color)} not found in current edge labels dictionary!")
-                
-                if agent in lbls_path:
-                    lbls_path[agent].set_text(color_pick(agent.color) + " agent path: " + str(agent.path))
-                else:
-                    debug(f"Agent {color_pick(agent.color)} not found in path labels dictionary!")
-                '''
 
         if not spawned and graph_generated:
             draw_graph(G, pos, show_labels, camera=camera, sim_surface=sim_surface, traffic_lights=traffic_lights, myfont=myfont)

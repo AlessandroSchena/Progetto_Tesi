@@ -141,7 +141,7 @@ class AgentGridGUI:
         self.columns = max(1, columns)
         self.update_interval_ms = update_interval_ms
 
-        debug("Shared data", self.shared_data)
+        # debug("Shared data", self.shared_data)
 
         # Top toolbar con pulsanti demo e contatori
         toolbar = ttk.Frame(root, padding=(4,4))

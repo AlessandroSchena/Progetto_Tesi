@@ -3,6 +3,9 @@ import math
 import networkx as nx
 import pygame
 import numpy as np
+
+from traffic_sim.traffic_controller import *
+
 from utilities.Debug import debug
 from utilities.ColorPicker import color_pick
 from utilities.euclidean_distance import distanza_euclidea
@@ -80,6 +83,8 @@ class Agent:
         self.current_edge_nodes = None # arco e corsia attuali
         self.prev_edge_nodes = None # arco e corsia precedenti
 
+        self.intelligent_agent = True 
+
         self.lock = lock
         self.shared_data = shared_data
         self.edge_closed = set()
@@ -121,11 +126,7 @@ class Agent:
             self.x, self.y = p1_off
             self.current_target = p2_off
             self.current_edge_nodes = (u, v, self.side)
-            if graph.has_edge(u, v):
-                graph[u][v]['agents_on_edge'].add(self.id)
-                debug("agents_on_edge attribute:", graph[u][v]['agents_on_edge'], "for edge", u, "→", v)
-            elif graph.has_edge(v, u):
-                graph[v][u]['agents_on_edge'].add(self.id)
+            add_traffic_edge((u, v))
 
     # Muove l'agente verso il target, evitando collisioni con altri agenti
     def move_towards(self, target, others, traffic_lights, dt=1.0):
@@ -270,34 +271,14 @@ class Agent:
                 self.x, self.y = p1_off
                 self.current_target = p2_off
                 self.current_edge_nodes = (u, v, self.side)
-                u1, v1, d = self.prev_edge_nodes
-                # debug("agents_on_edge attribute:", graph[u1][v1]['agents_on_edge'], "for edge", u1, "→", v1)
-                if graph.has_edge(u1, v1):
-                    debug("Removing agent", self.id, "from edge", u1, "→", v1)
-                    graph[u1][v1]['agents_on_edge'].remove(self.id)
-                    debug("agents_on_edge attribute:", graph[u1][v1]['agents_on_edge'], "for edge", u1, "→", v1)
-                elif graph.has_edge(v1, u1):
-                    debug("Removing agent", self.id, "from edge", v1, "→", u1)
-                    graph[v1][u1]['agents_on_edge'].remove(self.id)
-                    debug("agents_on_edge attribute:", graph[v1][u1]['agents_on_edge'], "for edge", v1, "→", u1)
-                if graph.has_edge(u, v):
-                    debug("Adding agent", self.id, "to edge", u, "→", v)
-                    graph[u][v]['agents_on_edge'].add(self.id)
-                    debug("agents_on_edge attribute:", graph[u][v]['agents_on_edge'], "for edge", u, "→", v)
-                elif graph.has_edge(v, u):
-                    debug("Adding agent", self.id, "to edge", v, "→", u)
-                    graph[v][u]['agents_on_edge'].add(self.id)
-                    debug("agents_on_edge attribute:", graph[v][u]['agents_on_edge'], "for edge", v, "→", u)
-                # debug("Agent", self.id, "moving from node", u, "to node", v, "current edge:", self.current_edge_nodes)
-
+                add_traffic_edge((u, v))
+                
             arrived = self.move_towards(self.current_target, agents, traffic_lights, dt)
 
             if arrived:
-                #debug("Agent", self.id, "arrived at node", v, "current edge:", self.current_edge_nodes)
-                # graph[u][v]['agents_on_edge'].remove(self.id)
+                remove_traffic_edge((u, v))
                 self.prev_edge_nodes = self.current_edge_nodes
                 self.path_index += 1
-                #debug(f"Agent {self.id} arrived at node {v} and is moving to next node {self.path[self.path_index+1] if self.path_index < len(self.path) - 1 else 'end of path'}")
                 self.current_target = None  # forza ricalcolo prossimo arco
         else:
             self.new_path(graph, pos)
@@ -659,12 +640,23 @@ def gen_graph(num_nodes:int, mode, traffic_lights):
     if mode != "pre_defined":
         nx.set_node_attributes(G, True, "is_reachable")
         nx.set_edge_attributes(G, True, "is_open")
-        nx.set_edge_attributes(G, {edge: set() for edge in G.edges()}, "agents_on_edge")
+        # nx.set_edge_attributes(G, {edge: set() for edge in G.edges()}, "agents_on_edge_pos")
+        # nx.set_edge_attributes(G, {edge: set() for edge in G.edges()}, "agents_on_edge_neg")
         pos = {n: (x*2, y*2) for n, (x, y) in pos.items()}
-        debug("pos: ", pos)
+        # Calcola e assegna la direzione di ogni arco
+        for u, v in G.edges():
+            x = pos[v][0] - pos[u][0]
+            y = pos[v][1] - pos[u][1]
+            length = math.hypot(x, y)
+            dir_x = x / length
+            dir_y = y / length
+            angle = math.atan2(y, x)
+            G[u][v]["direction"] = (dir_x, dir_y)
+
+            debug(f"Edge from {u} to {v}: length={length}, direction=({dir_x}, {dir_y}), angle={angle}")
         return G, pos
     else:
-        nx.set_edge_attributes(G, {edge: set() for edge in G.edges()}, "agents_on_edge")
+        # nx.set_edge_attributes(G, {edge: set() for edge in G.edges()}, "agents_on_edge")
         debug("pos: ", pos)
         return G, pos
 
