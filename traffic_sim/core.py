@@ -83,7 +83,7 @@ class Agent:
         self.current_edge_nodes = None # arco e corsia attuali
         self.prev_edge_nodes = None # arco e corsia precedenti
 
-        self.intelligent_agent = True 
+        self.intelligent_agent = True
 
         self.lock = lock
         self.shared_data = shared_data
@@ -217,6 +217,23 @@ class Agent:
             return edge_data.get("is_open", True)
         return False
 
+    # Controlla se sul path dell'agente c'è un traffico elevato
+    def check_traffic(self):
+        path = self.path
+        traffic_edge = []
+        i = 0
+        debug(f"agent: {self.id}, path: {self.path}, current edge: {self.current_edge_nodes}")
+        for u, v in zip(path[self.path_index+1:-1], path[self.path_index+2:]):
+            i += 1
+            if get_traffic(u, v) >= 3:
+                traffic_edge.append((u, v))
+            if i >= 3:
+                break
+            debug(f"\tcheck_traffic u: {u}, v: {v}")
+        debug(f"\t\ttraffic_edge: {traffic_edge}")
+        return traffic_edge
+            
+
     def update_if_closed_edge(self, graph, pos, edge):
         target = self.path[-1]
         u, v = edge
@@ -238,6 +255,26 @@ class Agent:
 
         except nx.NetworkXNoPath:
             self.new_path(graph, pos)
+    
+    def update_if_traffic_on_edge(self, graph, traffic, pos):
+        target = self.path[-1]
+        path = self.path
+
+        debug(f"agent {self.id} path: {self.path}")
+        
+        temp_graph = graph.copy()
+        for u, v in traffic:
+            if temp_graph.has_edge(u, v):
+                temp_graph.remove_edge(u, v)
+        try:
+            new_path = nx.shortest_path(temp_graph, u, target)
+            debug("New path: ", new_path)
+            self.path = new_path
+            self.path_index = 0
+            debug(f"Percorso trovato senza traffico per agente {self.id}: ", self.path)
+        except nx.NetworkXNoPath:
+            self.path = path
+            debug(f"Percorso senza traffico non trovato")
 
     # Aggiorna la posizione dell'agente lungo il percorso
     def update(self, graph, pos, agents, dt, traffic_lights):
@@ -277,6 +314,12 @@ class Agent:
 
             if arrived:
                 remove_traffic_edge((u, v))
+                if self.intelligent_agent:
+                    traffic = self.check_traffic()
+                    if len(traffic) > 0:
+                        debug(f"Traffic on edge per agente {self.id}: ", traffic)
+                        self.update_if_traffic_on_edge(graph, traffic, pos)
+                        return
                 self.prev_edge_nodes = self.current_edge_nodes
                 self.path_index += 1
                 self.current_target = None  # forza ricalcolo prossimo arco

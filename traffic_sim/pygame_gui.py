@@ -131,7 +131,7 @@ def pygame_thread_main(shared_data, lock):
     sld2 = pygame_gui.elements.UIHorizontalSlider(
         relative_rect=pygame.Rect((10, Y_PANEL), (BTN_WIDTH, 32)),
         start_value=10,
-        value_range=(5, 20),
+        value_range=(5, 30),
         manager=manager,
         container=panel
     )
